@@ -4,7 +4,7 @@ Created on 9:39 30-10-2020
 
 @author: Xian-Yong Ding
 mail to: dxy_vasp@163.com
-python3: dos.py
+python3: pvasp.py
 """
 import numpy as np
 from matplotlib import pyplot as plt
