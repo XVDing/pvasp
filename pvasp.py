@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created on 9:39 30-10-2020 
+Created on 19:54 04-11-2020 
 
-@author: Xian-Yong Ding
+@author: XY Ding
 mail to: dxy_vasp@163.com
-python3: pvasp.py
+python3: dos.py
 """
 import numpy as np
 from matplotlib import pyplot as plt
@@ -17,8 +17,6 @@ font = {'family': 'arial',
         'size': 13.0,
         }
 #------------------- Data manipulating ----------------------
-
-
 
 # ******************** band ************************
 # get the spin information from INCAR file
@@ -339,7 +337,7 @@ def bandplot(eng_r = [-10, 6, 2], color_noispin = "black", color_ispin = "red"):
 def manipulate_bandplot():
     print("    ****************************************************************")
     print("    *This is a code used to plot kinds of band structure,written by*")
-    print("    *                     Xian-Yong Ding                           *")
+    print("    *                          XY Ding                             *")
     print("    ****************************************************************")
     print("\n")
     print("                       (^o^)GOOD LUCK!(^o^)                         ")
@@ -420,8 +418,25 @@ def manipulate_bandplot():
         print("    ******************** ISPIN is not 1 or 2!  Good bye ! ********************")
 
 
-
 # *************************************** DOS *******************************************
+
+def get_ispin():
+    incar = open('INCAR','r')
+    incar_lines = incar.readlines()
+    flag=[]
+    for flag_incar in range(0,len(incar_lines)):
+        if 'ISPIN' in incar_lines[flag_incar]:
+            flag = incar_lines[flag_incar].lstrip()
+            spinline = incar_lines[flag_incar].split('=')[1]
+            if flag[0]=='#':          # whether the ISPIN is commented or not
+                    ispin = 1
+            else:
+                    ispin = int(spinline.split()[0])
+            break
+        else:
+                ispin = 1
+    return int(ispin)
+
 # get element information from POSCAR
 def _get_element():
     poscar = open('POSCAR', 'r')
@@ -441,9 +456,7 @@ def _get_element():
     return element, num_ele
 
 # get data of dos from DOSCAR
-def _dos_tot():
-    len_zifu = 10
-    len_zifu_cut = 12
+def _pdos_atom():
     element, num_ele = _get_element()
     doscar = open('DOSCAR', 'r')
     dos = doscar.readlines()
@@ -452,315 +465,276 @@ def _dos_tot():
     eng_min = float(line_6[1])
     nedos = int(line_6[2])
     fermi_eng = float(line_6[3])
-    round(fermi_eng, 6)
-    init = 1.00000
+    ispin = get_ispin()
+    if ispin == 1:
+        judge_f = dos[nedos + 7]  # judge whether have the f orbitals.
+        if len(judge_f.split()) > 20:
+            print("Exist f orbital, This script can't manipulate the f orbital !")
+        else:
+            len_all_atoms = 0
+            for atom_type in range(0, len(element)):
+                len_all_atoms += num_ele[atom_type]
+            data_dos_storage= np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_x = np.zeros(shape=(nedos))
+            for flag_x in range(0, nedos):
+                data_dos_storage_x[flag_x] = dos[6 + flag_x].split()[0]
+
+            for atom_num in range(0, len_all_atoms):
+                for flag_nedos in range(0, nedos):
+                    for atom_orbital in range(1, 10):
+                        data_dos_storage[atom_num][flag_nedos][atom_orbital-1] = \
+                        dos[flag_nedos + (nedos + 1) * (atom_num + 1) + 6].split()[atom_orbital]
+
+            data_dos_storage_orbitals = np.zeros(shape=(len(element), nedos, 9))
+            num_flag_up = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals[flag_data_orbitals] = np.sum(
+                    data_dos_storage[num_flag_up:num_flag_up + num_ele[flag_data_orbitals]], axis=0)
+                num_flag_up += num_ele[flag_data_orbitals]
+
+
+            data_dos_storage_orbitals_tot = np.zeros(shape=(len(element), nedos, 3))
+            for flag_dos_tot in range(0, len(element)):
+                data_dos_storage_orbitals_tot[flag_dos_tot, :, 0] = data_dos_storage_orbitals[
+                                                                           flag_dos_tot, :, 0]
+                data_dos_storage_orbitals_tot[flag_dos_tot, :, 1] = data_dos_storage_orbitals[
+                                                                           flag_dos_tot, :,
+                                                                           1] + data_dos_storage_orbitals[
+                                                                                flag_dos_tot, :, 2] + \
+                                                                           data_dos_storage_orbitals[
+                                                                           flag_dos_tot, :, 3]
+                data_dos_storage_orbitals_tot[flag_dos_tot, :, 2] = data_dos_storage_orbitals[
+                                                                           flag_dos_tot, :,
+                                                                           4] + data_dos_storage_orbitals[
+                                                                                flag_dos_tot, :, 5] + \
+                                                                           data_dos_storage_orbitals[
+                                                                           flag_dos_tot, :,
+                                                                           6] + data_dos_storage_orbitals[
+                                                                                flag_dos_tot, :,
+                                                                                7] + data_dos_storage_orbitals[
+                                                                                     flag_dos_tot, :, 8]
+
+            data_dos_storage_orbitals_tot = np.around(data_dos_storage_orbitals_tot, decimals=6)
+        for ele in range(0, len(element)):
+            with open("Pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
+                pdos.write("Pdos_" + str(element[ele]) + "\n")
+                pdos.write("Energy   s   p   d" + "\n")
+                for flag_line in range(0, nedos):
+                    pdos.write(str(np.round(data_dos_storage_x[flag_line] - fermi_eng, 8))[0:8].ljust(8, ' ') + "   ")
+                    for flag_data_orbitals in range(0, 3):
+                        pdos.write(
+                            str(data_dos_storage_orbitals_tot[ele][flag_line][flag_data_orbitals]).ljust(8, " ") + "   ")
+                    pdos.write("\n")
+            pdos.close()
+    elif ispin ==2:
+        judge_f = dos[nedos + 7]   # judge whether have the f orbitals.
+        if len(judge_f.split()) > 20:
+            print("Exist f orbital, This script can't manipulate the f orbital !")
+        else:
+            len_all_atoms = 0
+            for atom_type in range(0, len(element)):
+                len_all_atoms += num_ele[atom_type]
+            data_dos_storage_spinUP=np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_spinDW=np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_x = np.zeros(shape=(nedos))
+            for flag_x in range(0, nedos):
+                data_dos_storage_x[flag_x] = dos[6+flag_x].split()[0]
+
+            for atom_num in range(0, len_all_atoms):
+                for flag_nedos in range(0, nedos):
+                    for atom_orbital in range(1, 19, 2):
+                        data_dos_storage_spinUP[atom_num][flag_nedos][int((atom_orbital-1)/2)]=dos[flag_nedos + (nedos+1)*(atom_num + 1) + 6].split()[atom_orbital]
+                    for atom_orbital in range(2, 19, 2):
+                        data_dos_storage_spinDW[atom_num][flag_nedos][int(atom_orbital/2-1)]=dos[flag_nedos + (nedos+1)*(atom_num + 1) + 6].split()[atom_orbital]
+
+            data_dos_storage_orbitals_spinUP = np.zeros(shape=(len(element), nedos, 9))
+            data_dos_storage_orbitals_spinDW = np.zeros(shape=(len(element), nedos, 9))
+            num_flag_up = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals_spinUP[flag_data_orbitals] = np.sum(
+                    data_dos_storage_spinUP[num_flag_up:num_flag_up+num_ele[flag_data_orbitals]], axis=0)
+                num_flag_up += num_ele[flag_data_orbitals]
+            num_flag_dw = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals_spinDW[flag_data_orbitals] = np.sum(
+                    data_dos_storage_spinDW[num_flag_dw:num_flag_dw+num_ele[flag_data_orbitals]], axis=0)
+                num_flag_dw += num_ele[flag_data_orbitals]
+
+            data_dos_storage_orbitals_spinUP_tot = np.zeros(shape=(len(element), nedos, 3))
+            data_dos_storage_orbitals_spinDW_tot = np.zeros(shape=(len(element), nedos, 3))
+            for flag_dos_tot in range(0, len(element)):
+                data_dos_storage_orbitals_spinUP_tot[flag_dos_tot, :, 0] =data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 0]
+                data_dos_storage_orbitals_spinUP_tot[flag_dos_tot, :, 1] = data_dos_storage_orbitals_spinUP[
+                                                                           flag_dos_tot, :, 1] + data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 2] + \
+                                                                           data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 3]
+                data_dos_storage_orbitals_spinUP_tot[flag_dos_tot, :, 2] = data_dos_storage_orbitals_spinUP[
+                                                                           flag_dos_tot, :, 4] + data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 5] + \
+                                                                           data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 6] + data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 7] + data_dos_storage_orbitals_spinUP[flag_dos_tot, :, 8]
+                data_dos_storage_orbitals_spinDW_tot[flag_dos_tot, :, 0] =data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 0]
+                data_dos_storage_orbitals_spinDW_tot[flag_dos_tot, :, 1] = data_dos_storage_orbitals_spinDW[
+                                                                           flag_dos_tot, :, 1] + data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 2] + \
+                                                                           data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 3]
+                data_dos_storage_orbitals_spinDW_tot[flag_dos_tot, :, 2] = data_dos_storage_orbitals_spinDW[
+                                                                           flag_dos_tot, :, 4] + data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 5] + \
+                                                                           data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 6] + data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 7] + data_dos_storage_orbitals_spinDW[flag_dos_tot, :, 8]
+
+
+            data_dos_storage_orbitals_spinUP_tot = np.around(data_dos_storage_orbitals_spinUP_tot, decimals=6)
+            data_dos_storage_orbitals_spinDW_tot = np.around(data_dos_storage_orbitals_spinDW_tot, decimals=6)
+        for ele in range(0, len(element)):
+            with open("Pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
+                pdos.write("Pdos_" + str(element[ele]) +  "\n")
+                pdos.write("Energy  s_up  s_dw  p_up  p_dw  d_up  d_dw" + "\n")
+                for flag_line in range(0, nedos):
+                    pdos.write(str(np.round(data_dos_storage_x[flag_line]-fermi_eng, 8))[0:8].ljust(8, ' ') + "   ")
+                    for flag_data_orbitals in range(0, 3):
+                        pdos.write(str(data_dos_storage_orbitals_spinUP_tot[ele][flag_line][flag_data_orbitals]).ljust(8, " ")+"   ")
+                        pdos.write(str(-data_dos_storage_orbitals_spinDW_tot[ele][flag_line][flag_data_orbitals]).ljust(8, " ") + "   ")
+                    pdos.write("\n")
+            pdos.close()
+    else:
+        print("Can't read the ISPIN information, check whether have INCAR file or not !")
+
+def _pdos_atom_orbital():
+    element, num_ele = _get_element()
+    doscar = open('DOSCAR', 'r')
+    dos = doscar.readlines()
+    line_6 = dos[5].lstrip().split()
+    eng_max = float(line_6[0])
+    eng_min = float(line_6[1])
+    nedos = int(line_6[2])
+    fermi_eng = float(line_6[3])
+    ispin = get_ispin()
+    if ispin == 1:
+        judge_f = dos[nedos + 7]   # judge whether have the f orbitals.
+        if len(judge_f.split()) > 10:
+            print("Exist f orbital, This script can't manipulate the f orbital !")
+        else:
+            len_all_atoms = 0
+            for atom_type in range(0, len(element)):
+                len_all_atoms += num_ele[atom_type]
+            data_dos_storage=np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_x = np.zeros(shape=(nedos))
+            for flag_x in range(0, nedos):
+                data_dos_storage_x[flag_x] = dos[6+flag_x].split()[0]
+
+            for atom_num in range(0, len_all_atoms):
+                for flag_nedos in range(0, nedos):
+                    for atom_orbital in range(1, 10):
+                        data_dos_storage[atom_num][flag_nedos][atom_orbital-1]=dos[flag_nedos + (nedos+1)*(atom_num + 1) + 6].split()[atom_orbital]
+            data_dos_storage_orbitals = np.zeros(shape=(len(element), nedos, 9))
+            num_flag = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals[flag_data_orbitals] = np.sum(
+                    data_dos_storage[num_flag:num_flag+num_ele[flag_data_orbitals]], axis=0)
+                num_flag += num_ele[flag_data_orbitals]
+            np.set_printoptions(precision=4)
+            data_dos_storage_orbitals = np.around(data_dos_storage_orbitals, decimals=6)
+        for ele in range(0, len(element)):
+            with open("Pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
+                pdos.write("Pdos_" + str(element[ele]) +  "\n")
+                pdos.write("Energy  s  py  pz  px  dxy  dyz  dz2  dxz  dx2" + "\n")
+                for flag_line in range(0, nedos):
+                    pdos.write(str(np.round(data_dos_storage_x[flag_line]-fermi_eng, 8)).ljust(8, '0') + "   ")
+                    for flag_data_orbitals in range(0, 9):
+                        pdos.write(str(data_dos_storage_orbitals[ele][flag_line][flag_data_orbitals]).ljust(8, "0")+"   ")
+                    pdos.write("\n")
+            pdos.close()
+
+    elif ispin ==2:
+        judge_f = dos[nedos + 7]   # judge whether have the f orbitals.
+        if len(judge_f.split()) > 20:
+            print("Exist f orbital, This script can't manipulate the f orbital !")
+        else:
+            len_all_atoms = 0
+            for atom_type in range(0, len(element)):
+                len_all_atoms += num_ele[atom_type]
+            data_dos_storage_spinUP=np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_spinDW=np.zeros(shape=(len_all_atoms, nedos, 9))
+            data_dos_storage_x = np.zeros(shape=(nedos))
+            for flag_x in range(0, nedos):
+                data_dos_storage_x[flag_x] = dos[6+flag_x].split()[0]
+            print(len(dos[6010].split()))
+            for atom_num in range(0, len_all_atoms):
+                for flag_nedos in range(0, nedos):
+                    for atom_orbital in range(1, 19, 2):
+                        data_dos_storage_spinUP[atom_num][flag_nedos][int((atom_orbital-1)/2)]=dos[flag_nedos + (nedos+1)*(atom_num + 1) + 6].split()[atom_orbital]
+                    for atom_orbital in range(2, 19, 2):
+                        data_dos_storage_spinDW[atom_num][flag_nedos][int(atom_orbital/2-1)]=dos[flag_nedos + (nedos+1)*(atom_num + 1) + 6].split()[atom_orbital]
+
+            data_dos_storage_orbitals_spinUP = np.zeros(shape=(len(element), nedos, 9))
+            data_dos_storage_orbitals_spinDW = np.zeros(shape=(len(element), nedos, 9))
+            num_flag = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals_spinUP[flag_data_orbitals] = np.sum(
+                    data_dos_storage_spinUP[num_flag:num_flag+num_ele[flag_data_orbitals]], axis=0)
+                num_flag += num_ele[flag_data_orbitals]
+            num_flag = 0
+            for flag_data_orbitals in range(0, len(element)):
+                data_dos_storage_orbitals_spinDW[flag_data_orbitals] = np.sum(
+                    data_dos_storage_spinDW[num_flag:num_flag+num_ele[flag_data_orbitals]], axis=0)
+                num_flag += num_ele[flag_data_orbitals]
+
+            np.set_printoptions(precision=4)
+            data_dos_storage_orbitals_spinUP = np.around(data_dos_storage_orbitals_spinUP, decimals=6)
+            data_dos_storage_orbitals_spinDW = np.around(data_dos_storage_orbitals_spinDW, decimals=6)
+        for ele in range(0, len(element)):
+            with open("Pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
+                pdos.write("Pdos_" + str(element[ele]) +  "\n")
+                pdos.write("Energy  s_up  s_dw  py_up  py_dw  pz_up  pz_dw  px_up  px_dw  dxy_up  dxy_dw  dyz_up  dyz_dw  dz2_up  dz2_dw  dxz_up  dxz_dw  dx2_up  dx2_dw" + "\n")
+                for flag_line in range(0, nedos):
+                    pdos.write(str(np.round(data_dos_storage_x[flag_line]-fermi_eng, 8))[0:8].ljust(8, ' ') + "   ")
+                    for flag_data_orbitals in range(0, 9):
+                        pdos.write(str(data_dos_storage_orbitals_spinUP[ele][flag_line][flag_data_orbitals]).ljust(8, " ")+"   ")
+                        pdos.write(str(-data_dos_storage_orbitals_spinDW[ele][flag_line][flag_data_orbitals]).ljust(8, " ") + "   ")
+                    pdos.write("\n")
+            pdos.close()
+
+# get data of dos from DOSCAR
+def _dos_tot():
+    element, num_ele = _get_element()
+    doscar = open('DOSCAR', 'r')
+    dos = doscar.readlines()
+    line_6 = dos[5].lstrip().split()
+    eng_max = float(line_6[0])
+    eng_min = float(line_6[1])
+    nedos = int(line_6[2])
+    fermi_eng = float(line_6[3])
+    print(fermi_eng)
     ispin = get_ispin()
     if ispin == 1:
         with open("Tdos.dat", "w", encoding='utf-8') as tdos:
             tdos.write("Total density of state" + "\n")
             tdos.write("Energy".ljust(13," ") + "TDOS".ljust(13," ") + "IDOS".ljust(13," ") + "\n")
             for flag_line in range(0, nedos):
-                tdos.write(str(round(float(dos[6+flag_line].split()[0])-fermi_eng, len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   " +
-                           str(round(float(dos[6+flag_line].split()[1]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   "+
-                           str(round(float(dos[6+flag_line].split()[2]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "\n")
+                tdos.write(str(float(dos[6+flag_line].split()[0])-fermi_eng)[:10].ljust(10, " ") + "   " +
+                           str(dos[6+flag_line].split()[1]) + "   "+
+                           str(dos[6+flag_line].split()[2]) + "\n")
         tdos.close()
     elif ispin == 2:
         with open("Tdos_SpinUp.dat", "w", encoding='utf-8') as tdos_up:
             tdos_up.write("Tdos_spinUP" + "\n")
             tdos_up.write("Energy".ljust(13," ") + "TDOS".ljust(13," ") + "IDOS".ljust(13," ") + "\n")
             for flag_line in range(0, nedos):
-                tdos_up.write(str(round(float(dos[6+flag_line].split()[0])-fermi_eng, len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   " +
-                           str(round(float(dos[6+flag_line].split()[1]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   "+
-                           str(round(float(dos[6+flag_line].split()[3]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "\n")
+                tdos_up.write(str(float(dos[6+flag_line].split()[0])-fermi_eng)[:10].ljust(10, " ") + "   " +
+                           str(dos[6+flag_line].split()[1])+ "   "+
+                           str(dos[6+flag_line].split()[3])+ "\n")
         tdos_up.close()
         with open("Tdos_SpinDw.dat", "w", encoding='utf-8') as tdos_dw:
             tdos_dw.write("Tdos_spinDW" + "\n")
             tdos_dw.write("Energy".ljust(13," ") + "TDOS".ljust(13," ") + "IDOS".ljust(13," ") + "\n")
             for flag_line in range(0, nedos):
-                tdos_dw.write(str(round(float(dos[6+flag_line].split()[0])-fermi_eng, len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   " +
-                           str(round(-float(dos[6+flag_line].split()[2]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "   "+
-                           str(round(-float(dos[6+flag_line].split()[4]), len_zifu))[:len_zifu_cut].ljust(len_zifu_cut, " ") + "\n")
+                tdos_dw.write(str(float(dos[6+flag_line].split()[0])-fermi_eng)[:10].ljust(10, " ") + "   " +
+                           str("-"+dos[6+flag_line].split()[2]) + "   "+
+                           str("-"+dos[6+flag_line].split()[4]) + "\n")
         tdos_dw.close()
     else:
         print("No ispin information obtained !")
 
-# get pdos of atoms from DOSCAR
-def _pdos_atom():
-    orbitals = 10
-    element, num_ele = _get_element()
-    doscar = open('DOSCAR', 'r')
-    dos = doscar.readlines()
-    line_6 = dos[5].lstrip().split()
-    eng_max = float(line_6[0])
-    eng_min = float(line_6[1])
-    nedos = int(line_6[2])
-    fermi_eng = float(line_6[3])
-    round(fermi_eng, 6)
-
-    with open("tdos.dat", "w", encoding='utf-8') as tot:
-        tot.write("Total density of state" + "\n")
-        tot.write("energy  " + "TDOS   " + "     IDOS" + "\n")
-        for flag_line in range(0, nedos):
-            tot.write(str(dos[6 + flag_line].lstrip()))
-    tot.close()
-    file_dos = np.loadtxt("tdos.dat", skiprows=2, dtype=str)
-
-    ispin = get_ispin()
-    data_dos = []
-    for lines in range(nedos + 7, len(dos), nedos+1):
-        for lines_data in range(0, nedos):
-            data_dos.append(dos[lines_data + lines])
-
-    dos_atom_type = [[]] * len(num_ele)
-
-    mid_dos_data = []
-    atom_type = []
-    for flag_mid_dos_data in range(0, sum(num_ele)):
-        if flag_mid_dos_data == sum(num_ele):
-            break
-        else:
-            mid_dos_data.append(data_dos[(flag_mid_dos_data * nedos):((flag_mid_dos_data + 1) * nedos)])
-    for atom_type_num in range(0, len(num_ele)):
-        atom_type.append(mid_dos_data[:num_ele[atom_type_num]])
 
 
-    if ispin == 1:
-        s = [[] for i in range(0, len(num_ele))]; s_m = [0] * nedos
-        py = [[] for i in range(0, len(num_ele))]; py_m = [0] * nedos
-        pz = [[] for i in range(0, len(num_ele))]; pz_m = [0] * nedos
-        px = [[] for i in range(0, len(num_ele))]; px_m = [0] * nedos
-        dxy = [[] for i in range(0, len(num_ele))]; dxy_m = [0] * nedos
-        dyz = [[] for i in range(0, len(num_ele))]; dyz_m = [0] * nedos
-        dz2 = [[] for i in range(0, len(num_ele))]; dz2_m = [0] * nedos
-        dxz = [[] for i in range(0, len(num_ele))]; dxz_m = [0] * nedos
-        dx2 = [[] for i in range(0, len(num_ele))]; dx2_m = [0] * nedos
-
-        for flag_atom_type in range(0, len(num_ele)):
-            for flag_atomnum in range(0, num_ele[flag_atom_type]):
-                for flag_ne in range(0, nedos):
-                    s[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[1]))
-                    py[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[2]))
-                    pz[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[3]))
-                    px[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[4]))
-                    dxy[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[5]))
-                    dyz[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[6]))
-                    dz2[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[7]))
-                    dxz[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[8]))
-                    dx2[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[9]))
-
-        middle_s = [0] * nedos
-        middle_py = [0] * nedos
-        middle_pz = [0] * nedos
-        middle_px = [0] * nedos
-        middle_dxy = [0] * nedos
-        middle_dyz = [0] * nedos
-        middle_dz2 = [0] * nedos
-        middle_dxz = [0] * nedos
-        middle_dx2 = [0] * nedos
-
-        for flag_atom_type in range(0, len(num_ele)):
-            for flag_atomnum in range(0, num_ele[flag_atom_type]):
-                for flag_ne in range(0, nedos):
-                    s_m[flag_ne] = (s[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_s[flag_ne])
-                    middle_s[flag_ne] = s_m[flag_ne]
-                    py_m[flag_ne] = (py[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_py[flag_ne])
-                    middle_py[flag_ne]=(py_m[flag_ne])
-                    pz_m[flag_ne] = (pz[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_pz[flag_ne])
-                    middle_pz[flag_ne]=(pz_m[flag_ne])
-                    px_m[flag_ne] = (px[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_px[flag_ne])
-                    middle_px[flag_ne]=(px_m[flag_ne])
-                    dxy_m[flag_ne] = (dxy[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxy[flag_ne])
-                    middle_dxy[flag_ne]=(dxy_m[flag_ne])
-                    dyz_m[flag_ne] = (dyz[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dyz[flag_ne])
-                    middle_dyz[flag_ne]=(dyz_m[flag_ne])
-                    dz2_m[flag_ne] = (dz2[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dz2[flag_ne])
-                    middle_dz2[flag_ne]=(dz2_m[flag_ne])
-                    dxz_m[flag_ne] = (dxz[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxz[flag_ne])
-                    middle_dxz[flag_ne]=(dxz_m[flag_ne])
-                    dx2_m[flag_ne] = (dx2[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dx2[flag_ne])
-                    middle_dx2[flag_ne]=(dx2_m[flag_ne])
-        for ele in range(0, len(element)):
-            with open("pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
-                pdos.write("pdos_" + str(element[ele]) +  "\n")
-                pdos.write("Energy  s  py  pz  px  dxy  dyz  dz2  dxz  dx2" + "\n")
-                for flag_line in range(0, nedos):
-                    file_dos[flag_line, 0] = float(file_dos[flag_line, 0]) - fermi_eng
-                    round(float(file_dos[flag_line, 0]), 6)
-                    round(s_m[flag_line], 8)
-                    round(py_m[flag_line], 8)
-                    round(pz_m[flag_line], 8)
-                    round(px_m[flag_line], 8)
-                    round(dxy_m[flag_line], 8)
-                    round(dyz_m[flag_line], 8)
-                    round(dz2_m[flag_line], 8)
-                    round(dxz_m[flag_line], 8)
-                    round(dx2_m[flag_line], 8)
-                    pdos.write(str(file_dos[flag_line, 0]) + "   " + str(s_m[flag_line]) + "   " + str(
-                        py_m[flag_line]) +  "   " + str(
-                        pz_m[flag_line]) +  "   " + str(
-                        px_m[flag_line]) +  "   " + str(
-                        dxy_m[flag_line]) +  "   " + str(
-                        dyz_m[flag_line]) +  "   " + str(
-                        dz2_m[flag_line]) +  "   " + str(
-                        dxz_m[flag_line]) +  "   " + str(
-                        dx2_m[flag_line]) + "\n")
-            pdos.close()
-    elif ispin == 2:
-        s_atom_up = [[] for i in range(0, len(num_ele))]; s_up = [0] * nedos
-        s_atom_dw = [[] for i in range(0, len(num_ele))]; s_dw = [0] * nedos
-        py_atom_up = [[] for i in range(0, len(num_ele))]; py_up = [0] * nedos
-        py_atom_dw = [[] for i in range(0, len(num_ele))]; py_dw = [0] * nedos
-        pz_atom_up = [[] for i in range(0, len(num_ele))]; pz_up = [0] * nedos
-        pz_atom_dw = [[] for i in range(0, len(num_ele))]; pz_dw = [0] * nedos
-        px_atom_up = [[] for i in range(0, len(num_ele))]; px_up = [0] * nedos
-        px_atom_dw = [[] for i in range(0, len(num_ele))]; px_dw = [0] * nedos
-        dxy_atom_up = [[] for i in range(0, len(num_ele))]; dxy_up = [0] * nedos
-        dxy_atom_dw = [[] for i in range(0, len(num_ele))]; dxy_dw = [0] * nedos
-        dyz_atom_up = [[] for i in range(0, len(num_ele))]; dyz_up = [0] * nedos
-        dyz_atom_dw = [[] for i in range(0, len(num_ele))]; dyz_dw = [0] * nedos
-        dz2_atom_up = [[] for i in range(0, len(num_ele))]; dz2_up = [0] * nedos
-        dz2_atom_dw = [[] for i in range(0, len(num_ele))]; dz2_dw = [0] * nedos
-        dxz_atom_up = [[] for i in range(0, len(num_ele))]; dxz_up = [0] * nedos
-        dxz_atom_dw = [[] for i in range(0, len(num_ele))]; dxz_dw = [0] * nedos
-        dx2_atom_up = [[] for i in range(0, len(num_ele))]; dx2_up = [0] * nedos
-        dx2_atom_dw = [[] for i in range(0, len(num_ele))]; dx2_dw = [0] * nedos
-
-        for flag_atom_type in range(0, len(num_ele)):
-            for flag_atomnum in range(0, num_ele[flag_atom_type]):
-                for flag_ne in range(0, nedos):
-                    s_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[1]))
-                    s_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[2]))
-
-                    py_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[3]))
-                    py_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[4]))
-                    pz_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[5]))
-                    pz_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[6]))
-                    px_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[7]))
-                    px_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[8]))
-
-                    dxy_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[9]))
-                    dxy_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[10]))
-                    dyz_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[11]))
-                    dyz_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[12]))
-                    dz2_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[13]))
-                    dz2_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[14]))
-                    dxz_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[15]))
-                    dxz_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[16]))
-                    dx2_atom_up[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[17]))
-                    dx2_atom_dw[flag_atom_type].append(float(atom_type[flag_atom_type][flag_atomnum][flag_ne].split()[18]))
-
-        middle_s_up = [0] * nedos; middle_s_dw = [0] * nedos
-        middle_py_up = [0] * nedos; middle_py_dw = [0] * nedos
-        middle_pz_up = [0] * nedos; middle_pz_dw = [0] * nedos
-        middle_px_up = [0] * nedos; middle_px_dw = [0] * nedos
-        middle_dxy_up = [0] * nedos; middle_dxy_dw = [0] * nedos
-        middle_dyz_up = [0] * nedos; middle_dyz_dw = [0] * nedos
-        middle_dz2_up = [0] * nedos; middle_dz2_dw = [0] * nedos
-        middle_dxz_up = [0] * nedos; middle_dxz_dw = [0] * nedos
-        middle_dx2_up = [0] * nedos; middle_dx2_dw = [0] * nedos
-
-        for flag_atom_type in range(0, len(num_ele)):
-            for flag_atomnum in range(0, num_ele[flag_atom_type]):
-                for flag_ne in range(0, nedos):
-                    s_up[flag_ne] = (s_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_s_up[flag_ne])
-                    middle_s_up[flag_ne] = s_up[flag_ne]
-                    s_dw[flag_ne] = (s_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_s_dw[flag_ne])
-                    middle_s_dw[flag_ne] = s_dw[flag_ne]
-
-                    py_up[flag_ne] = (py_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_py_up[flag_ne])
-                    middle_py_up[flag_ne]=(py_up[flag_ne])
-                    py_dw[flag_ne] = (py_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_py_dw[flag_ne])
-                    middle_py_dw[flag_ne] = (py_dw[flag_ne])
-
-                    pz_up[flag_ne] = (pz_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_pz_up[flag_ne])
-                    middle_pz_up[flag_ne]=(pz_up[flag_ne])
-                    pz_dw[flag_ne] = (pz_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_pz_dw[flag_ne])
-                    middle_pz_dw[flag_ne] = (pz_dw[flag_ne])
-
-                    px_up[flag_ne] = (px_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_px_up[flag_ne])
-                    middle_px_up[flag_ne]=(px_up[flag_ne])
-                    px_dw[flag_ne] = (px_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_px_dw[flag_ne])
-                    middle_px_dw[flag_ne] = (px_dw[flag_ne])
-
-                    dxy_up[flag_ne] = (dxy_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxy_up[flag_ne])
-                    middle_dxy_up[flag_ne]=(dxy_up[flag_ne])
-                    dxy_dw[flag_ne] = (dxy_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxy_dw[flag_ne])
-                    middle_dxy_dw[flag_ne] = (dxy_dw[flag_ne])
-
-                    dyz_up[flag_ne] = (dyz_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dyz_up[flag_ne])
-                    middle_dyz_up[flag_ne]=(dyz_up[flag_ne])
-                    dyz_dw[flag_ne] = (dyz_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dyz_dw[flag_ne])
-                    middle_dyz_dw[flag_ne] = (dyz_dw[flag_ne])
-
-                    dz2_up[flag_ne] = (dz2_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dz2_up[flag_ne])
-                    middle_dz2_up[flag_ne]=(dz2_up[flag_ne])
-                    dz2_dw[flag_ne] = (dz2_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dz2_dw[flag_ne])
-                    middle_dz2_dw[flag_ne] = (dz2_dw[flag_ne])
-
-                    dxz_up[flag_ne] = (dxz_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxz_up[flag_ne])
-                    middle_dxz_up[flag_ne]=(dxz_up[flag_ne])
-                    dxz_dw[flag_ne] = (dxz_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dxz_dw[flag_ne])
-                    middle_dxz_dw[flag_ne] = (dxz_dw[flag_ne])
-
-                    dx2_up[flag_ne] = (dx2_atom_up[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dx2_up[flag_ne])
-                    middle_dx2_up[flag_ne]=(dx2_up[flag_ne])
-                    dx2_dw[flag_ne] = (dx2_atom_dw[flag_atom_type][flag_ne + flag_atomnum * nedos] + middle_dx2_dw[flag_ne])
-                    middle_dx2_dw[flag_ne] = (dx2_dw[flag_ne])
-
-        for ele in range(0, len(element)):
-            with open("pdos_" + str(element[ele]) + ".dat", "w", encoding='utf-8') as pdos:
-                pdos.write("pdos_" + str(element[ele]) +  "\n")
-                pdos.write("Energy  s_up  s_dw  py_up  py_dw  pz_up  pz_dw  px_up  px_dw  dxy_up  dxy_dw  dyz_up  dyz_dw  dz2_up  dz2_dw  dxz_up  dxz_dw  dx2_up  dx2_dw" + "\n")
-                for flag_line in range(0, nedos):
-                    file_dos[flag_line, 0] = float(file_dos[flag_line, 0]) - fermi_eng
-                    round(float(file_dos[flag_line, 0]), 6)
-
-                    round(s_up[flag_line], 8)
-                    round(s_dw[flag_line], 8)
-
-                    round(py_up[flag_line], 8)
-                    round(py_dw[flag_line], 8)
-                    round(pz_up[flag_line], 8)
-                    round(pz_dw[flag_line], 8)
-                    round(px_up[flag_line], 8)
-                    round(px_dw[flag_line], 8)
-
-                    round(dxy_up[flag_line], 8)
-                    round(dxy_dw[flag_line], 8)
-                    round(dyz_up[flag_line], 8)
-                    round(dyz_dw[flag_line], 8)
-                    round(dz2_up[flag_line], 8)
-                    round(dz2_dw[flag_line], 8)
-                    round(dxz_up[flag_line], 8)
-                    round(dxz_dw[flag_line], 8)
-                    round(dx2_up[flag_line], 8)
-                    round(dx2_dw[flag_line], 8)
-                    pdos.write(str(file_dos[flag_line, 0]) + "   " + str(
-                        s_up[flag_line]) + "   " + str(
-                        -s_dw[flag_line]) + "   " + str(
-                        py_up[flag_line]) + "   " + str(
-                        -py_dw[flag_line]) + "   " + str(
-                        pz_up[flag_line]) + "   " + str(
-                        -pz_dw[flag_line]) + "   " + str(
-                        px_up[flag_line]) + "   " + str(
-                        -px_dw[flag_line]) + "   " + str(
-                        dxy_up[flag_line]) + "   " + str(
-                        -dxy_dw[flag_line]) + "   " + str(
-                        dyz_up[flag_line]) + "   " + str(
-                        -dyz_dw[flag_line]) + "   " + str(
-                        dz2_up[flag_line]) + "   " + str(
-                        -dz2_dw[flag_line]) + "   " + str(
-                        dxz_up[flag_line]) + "   " + str(
-                        -dxz_dw[flag_line]) + "   " + str(
-                        dx2_up[flag_line]) + "   " + str(
-                        -dx2_dw[flag_line]) +
-                                  "\n")
-            pdos.close()
-    else:
-        print("No Ispin Information Obtained !, Checking whether this path exist the INCAR file")
-# dos plot
 def _dos_plot_atom_orbital(eng_range = [-10, 10, 2]):
-    _pdos_atom()
+    _pdos_atom_orbital()
     orbitals_noispin = ["s", "py", "pz", "px", "dxy", "dyz", "dz2", "dxz", "dx2"]
     orbitals_ispin = ["s_up", "s_dw", "py_up", "py_dw", "pz_up", "pz_dw", "px_up", "px_dw", "dxy_up", "dxy_dw", "dyz_up", "dyz_dw", "dz2_up", "dz2_dw", "dxz_up", "dxz_dw", "dx2_up", "dx2_dw"]
     ispin = get_ispin()
@@ -768,7 +742,7 @@ def _dos_plot_atom_orbital(eng_range = [-10, 10, 2]):
     filename = [[] for i in range(0, len(element))]
     data = [[] for i in range(0, len(element))]
     for flag_atom_type in range(0, len(element)):
-        filename[flag_atom_type] = "pdos_" + element[flag_atom_type] + ".dat"
+        filename[flag_atom_type] = "Pdos_" + element[flag_atom_type] + ".dat"
         data[flag_atom_type] = np.loadtxt(filename[flag_atom_type], skiprows=2, dtype=float)
 
     get_d_maxvalue = [[] for i in range(0, len(element))]
@@ -778,15 +752,15 @@ def _dos_plot_atom_orbital(eng_range = [-10, 10, 2]):
     if ispin == 1:
         print(" *************************** ISPIN is 1 ****************************")
         for flag_atom_type in range(0, len(element)):
-            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 6])
+            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 5]+data[flag_atom_type][:, 6]+data[flag_atom_type][:, 7]+data[flag_atom_type][:, 8]+data[flag_atom_type][:, 9])
             if get_d_maxvalue[flag_atom_type] == 0:     # if d orbitals have no values, plot the s p
-                for flag_atom_orbital in range(0, (len(orbitals_noispin)-5)):
-                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, 1+flag_atom_orbital], ls="-",
-                             label=str(element[flag_atom_type] +"_"+ orbitals_noispin[flag_atom_orbital]))
+                for flag_atom_orbital in range(1, 5):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital], ls="-",
+                             label=str(element[flag_atom_type] +"_"+ orbitals_noispin[flag_atom_orbital-1]))
             else:
-                for flag_atom_orbital in range(0, len(orbitals_noispin)):
-                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, 1+flag_atom_orbital], ls="-",
-                             label=str(element[flag_atom_type] +"_"+ orbitals_noispin[flag_atom_orbital]))
+                for flag_atom_orbital in range(1, 10):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital], ls="-",
+                             label=str(element[flag_atom_type] +"_"+ orbitals_noispin[flag_atom_orbital-1]))
 
         ax.axhline(y=0, xmin=0, xmax=1, linestyle='--', linewidth=1.5, color='0.5')
         ax.axvline(x=0, ymin=0, ymax=1, linestyle='--', linewidth=1.5, color='0.5')
@@ -803,15 +777,15 @@ def _dos_plot_atom_orbital(eng_range = [-10, 10, 2]):
     elif ispin == 2:
         print(" *************************** ISPIN is 2 ****************************")
         for flag_atom_type in range(0, len(element)):
-            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 10])
+            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 10]+data[flag_atom_type][:, 11]+data[flag_atom_type][:, 12]+data[flag_atom_type][:, 13]+data[flag_atom_type][:, 14])
             if get_d_maxvalue[flag_atom_type] == 0:     # if d orbitals have no values, plot the s p
-                for flag_atom_orbital in range(0, (len(orbitals_ispin)-10)):
-                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, (1+flag_atom_orbital)], ls="-",
-                             label=str(element[flag_atom_type] +"_"+ orbitals_ispin[flag_atom_orbital]))
+                for flag_atom_orbital in range(1, 9):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital], ls="-",
+                             label=str(element[flag_atom_type] +"_"+ orbitals_ispin[flag_atom_orbital-1]))
             else:
-                for flag_atom_orbital in range(0, len(orbitals_ispin)):
-                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, 1 + flag_atom_orbital], ls="-",
-                             label=str(element[flag_atom_type] + "_" + orbitals_ispin[flag_atom_orbital]))
+                for flag_atom_orbital in range(1, 19):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital], ls="-",
+                             label=str(element[flag_atom_type] + "_" + orbitals_ispin[flag_atom_orbital-1]))
 
         ax.axvline(x=0, ymin=0, ymax=1, linestyle='--', linewidth=1.5, color='0.5')
         ax.axhline(y=0, xmin=0, xmax=1, linestyle='--', linewidth=1.5, color='0.5')
@@ -830,8 +804,6 @@ def _dos_plot_atom_orbital(eng_range = [-10, 10, 2]):
         print("No Ispin Information Obtained !, Checking whether this path exist the INCAR file")
 
 
-
-# plot dos for atom_orbital
 def _dos_plot_atom(eng_range = [-10, 10, 2]):
     _pdos_atom()
     orbitals_noispin = ["s", "p", "d"]
@@ -841,7 +813,7 @@ def _dos_plot_atom(eng_range = [-10, 10, 2]):
     filename = [[] for i in range(0, len(element))]
     data = [[] for i in range(0, len(element))]
     for flag_atom_type in range(0, len(element)):
-        filename[flag_atom_type] = "pdos_" + element[flag_atom_type] + ".dat"
+        filename[flag_atom_type] = "Pdos_" + element[flag_atom_type] + ".dat"
         data[flag_atom_type] = np.loadtxt(filename[flag_atom_type], skiprows=2, dtype=float)
 
     get_d_maxvalue = [[] for i in range(0, len(element))]
@@ -850,28 +822,18 @@ def _dos_plot_atom(eng_range = [-10, 10, 2]):
 
     if ispin == 1:
         print("    *************************** ISPIN is 1 ****************************")
-        s_orbital = [[] for i in range(0, len(element))]
-        p_orbital = [[] for i in range(0, len(element))]
-        d_orbital = [[] for i in range(0, len(element))]
-        for flag_atomtype in range(0, len(element)):
-            s_orbital[flag_atomtype] = data[flag_atomtype][:, 1]
-            p_orbital[flag_atomtype] = data[flag_atomtype][:, 2] + data[flag_atomtype][:, 3] + data[flag_atomtype][:, 4]
-            d_orbital[flag_atomtype] = data[flag_atomtype][:, 5] + data[flag_atomtype][:, 6] + data[flag_atomtype][:, 7] + data[flag_atomtype][:, 8] + data[flag_atomtype][:, 9]
-
         for flag_atom_type in range(0, len(element)):
-            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 6])
-            if get_d_maxvalue[flag_atom_type] == 0:     # if d orbitals have no values, plot the s p
-                plt.plot(data[flag_atom_type][:, 0], s_orbital[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_noispin[0]))
-                plt.plot(data[flag_atom_type][:, 0], p_orbital[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_noispin[1]))
+            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 3])
+
+            if get_d_maxvalue[flag_atom_type] == 0:  # if d orbitals have no values, plot the s p
+                for flag_atom_orbital in range(1, 3):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital],
+                             ls="-",label=str(element[flag_atom_type] + "_" + orbitals_noispin[flag_atom_orbital-1]))
             else:
-                plt.plot(data[flag_atom_type][:, 0], s_orbital[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_noispin[0]))
-                plt.plot(data[flag_atom_type][:, 0], p_orbital[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_noispin[1]))
-                plt.plot(data[flag_atom_type][:, 0], d_orbital[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_noispin[2]))
+                for flag_atom_orbital in range(1, 4):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital],
+                             ls="-",label=str(element[flag_atom_type] + "_" + orbitals_noispin[flag_atom_orbital-1]))
+
 
         ax.axhline(y=0, xmin=0, xmax=1, linestyle='--', linewidth=1.5, color='0.5')
         ax.axvline(x=0, ymin=0, ymax=1, linestyle='--', linewidth=1.5, color='0.5')
@@ -887,54 +849,21 @@ def _dos_plot_atom(eng_range = [-10, 10, 2]):
         plt.show()
     elif ispin == 2:
         print("    *************************** ISPIN is 2 ****************************")
-        s_orbital_up = [[] for i in range(0, len(element))]
-        s_orbital_dw = [[] for i in range(0, len(element))]
-        p_orbital_up = [[] for i in range(0, len(element))]
-        p_orbital_dw = [[] for i in range(0, len(element))]
-        d_orbital_up = [[] for i in range(0, len(element))]
-        d_orbital_dw = [[] for i in range(0, len(element))]
-        for flag_atomtype in range(0, len(element)):
-            s_orbital_up[flag_atomtype] = data[flag_atomtype][:, 1]
-            s_orbital_dw[flag_atomtype] = data[flag_atomtype][:, 2]
-
-            p_orbital_up[flag_atomtype] = data[flag_atomtype][:, 3] + data[flag_atomtype][:, 5] + data[flag_atomtype][:, 7]
-            p_orbital_dw[flag_atomtype] = data[flag_atomtype][:, 4] + data[flag_atomtype][:, 6] + data[flag_atomtype][:, 8]
-
-            d_orbital_up[flag_atomtype] = data[flag_atomtype][:, 9] + data[flag_atomtype][:, 11] + data[flag_atomtype][:, 13] + \
-                                       data[flag_atomtype][:, 15] + data[flag_atomtype][:, 17]
-            d_orbital_dw[flag_atomtype] = data[flag_atomtype][:, 10] + data[flag_atomtype][:, 12] + data[flag_atomtype][:, 14] + \
-                                       data[flag_atomtype][:, 16] + data[flag_atomtype][:, 18]
         for flag_atom_type in range(0, len(element)):
-            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 6])
+            get_d_maxvalue[flag_atom_type] = max(data[flag_atom_type][:, 5]+data[flag_atom_type][:, 6])
+
             if get_d_maxvalue[flag_atom_type] == 0:  # if d orbitals have no values, plot the s p
-                plt.plot(data[flag_atom_type][:, 0], s_orbital_up[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[0]))
-                plt.plot(data[flag_atom_type][:, 0], s_orbital_dw[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[1]))
-
-                plt.plot(data[flag_atom_type][:, 0], p_orbital_up[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[2]))
-                plt.plot(data[flag_atom_type][:, 0], p_orbital_dw[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[3]))
-
+                for flag_atom_orbital in range(1, 5):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital],
+                             ls="-",label=str(element[flag_atom_type] + "_" + orbitals_ispin[flag_atom_orbital-1]))
             else:
-                plt.plot(data[flag_atom_type][:, 0], s_orbital_up[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[0]))
-                plt.plot(data[flag_atom_type][:, 0], s_orbital_dw[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[1]))
+                for flag_atom_orbital in range(1, 7):
+                    plt.plot(data[flag_atom_type][:, 0], data[flag_atom_type][:, flag_atom_orbital],
+                             ls="-",label=str(element[flag_atom_type] + "_" + orbitals_ispin[flag_atom_orbital-1]))
 
-                plt.plot(data[flag_atom_type][:, 0], p_orbital_up[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[2]))
-                plt.plot(data[flag_atom_type][:, 0], p_orbital_dw[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[3]))
 
-                plt.plot(data[flag_atom_type][:, 0], d_orbital_up[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[4]))
-                plt.plot(data[flag_atom_type][:, 0], d_orbital_dw[flag_atom_type], ls="-",
-                         label=str(element[flag_atom_type] + "_" + orbitals_ispin[5]))
-
-        ax.axvline(x=0, ymin=0, ymax=1, linestyle='--', linewidth=1.5, color='0.5')
         ax.axhline(y=0, xmin=0, xmax=1, linestyle='--', linewidth=1.5, color='0.5')
+        ax.axvline(x=0, ymin=0, ymax=1, linestyle='--', linewidth=1.5, color='0.5')
         plt.xlabel("E - " + "E$_\mathrm{{F}}$" + " (eV)", fontsize=16, fontname='arial')
         plt.xlim(eng_range[0], eng_range[1])
         xtick = np.arange(eng_range[0], eng_range[1] + 1, eng_range[2])
@@ -949,8 +878,6 @@ def _dos_plot_atom(eng_range = [-10, 10, 2]):
     else:
         print("No Ispin Information Obtained !, Checking whether this path exist the INCAR file")
 
-
-# plot tot dos
 def _dos_plot_tot(eng_range = [-10, 10, 2], integral = 0):
     _dos_tot()
     ispin = get_ispin()
@@ -1043,7 +970,7 @@ def _dos_plot_tot(eng_range = [-10, 10, 2], integral = 0):
         else:
             print("No Ispin Information Obtained !, Checking whether this path exist the INCAR file")
 
-# manipulate dos ploting
+
 def _manipulate_dos():
     print(" ************************** Enter dos ploting *****************************")
     print("(1) Total dos")
@@ -1116,6 +1043,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 
 
