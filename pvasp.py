@@ -635,9 +635,9 @@ def _pdos_atom_orbital():
                 pdos.write("Pdos_" + str(element[ele]) +  "\n")
                 pdos.write("Energy  s  py  pz  px  dxy  dyz  dz2  dxz  dx2" + "\n")
                 for flag_line in range(0, nedos):
-                    pdos.write(str(np.round(data_dos_storage_x[flag_line]-fermi_eng, 8)).ljust(8, '0') + "   ")
+                    pdos.write(str(np.round(data_dos_storage_x[flag_line]-fermi_eng, 8)).ljust(8, ' ') + "   ")
                     for flag_data_orbitals in range(0, 9):
-                        pdos.write(str(data_dos_storage_orbitals[ele][flag_line][flag_data_orbitals]).ljust(8, "0")+"   ")
+                        pdos.write(str(data_dos_storage_orbitals[ele][flag_line][flag_data_orbitals]).ljust(8, " ")+"   ")
                     pdos.write("\n")
             pdos.close()
 
