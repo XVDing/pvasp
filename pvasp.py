@@ -1127,7 +1127,7 @@ def hse_get_eigenval():
         return energy_kpt_up, energy_kpt_dw
     else:
         return "No Ispin Information Obtained !"
-print(hse_get_eigenval()[0][1])
+
 # output band data for hse06
 def hse_output_band():
     num_kpt_all, num_kpt_hk = hse_get_kpt_bandnum()
