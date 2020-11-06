@@ -42,11 +42,15 @@ def get_ispin():
 def get_NBANDS():
     outcar = open('OUTCAR','r')
     outcar_lines = outcar.readlines()
+    nbands = 0
     for flag_outcar in range(0,len(outcar_lines)):
         if 'NBANDS' in outcar_lines[flag_outcar]:
-            spinline = outcar_lines[flag_outcar].split('=')[3]
-            nbands = int(spinline.split()[0])
-            break
+            if len(outcar_lines[flag_outcar].split('=')) != 4:
+                continue
+            else:
+                spinline = outcar_lines[flag_outcar].split('=')[3]
+                nbands = int(spinline.split()[0])
+                break
     return nbands
 
 # get the fermi level from OUTCAR
