@@ -423,24 +423,6 @@ def manipulate_bandplot():
 
 
 # *************************************** DOS *******************************************
-
-def get_ispin():
-    incar = open('INCAR','r')
-    incar_lines = incar.readlines()
-    flag=[]
-    for flag_incar in range(0,len(incar_lines)):
-        if 'ISPIN' in incar_lines[flag_incar]:
-            flag = incar_lines[flag_incar].lstrip()
-            spinline = incar_lines[flag_incar].split('=')[1]
-            if flag[0]=='#':          # whether the ISPIN is commented or not
-                    ispin = 1
-            else:
-                    ispin = int(spinline.split()[0])
-            break
-        else:
-                ispin = 1
-    return int(ispin)
-
 # get element information from POSCAR
 def _get_element():
     poscar = open('POSCAR', 'r')
