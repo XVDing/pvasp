@@ -174,6 +174,25 @@ def get_kpt(filename = "KPOINTS"):
         lent = lent + length[flag_kpt_hn]
     return int(num_kpt), length, high_kpt_point, kpt
 
+# output klines.dat
+def output_klines(filename = "KPOINTS"):
+    num_kpt, length, high_kpt_point, kpt = get_kpt(filename)
+    len_high_k = 0
+    for j in range(0, len(length)):
+        length[j] = length[j] + len_high_k
+        len_high_k = length[j]
+    with open("klines.dat", "w", encoding='utf-8') as kline:
+        kline.write("high_kpoints" + "\n")
+        kline.write(str(0) + "  " + str(10) + "\n")
+        kline.write(str(0) + "  " + str(-15) + "\n")
+        for l_num in range(0, len(length) - 1):
+            kline.write(str(length[l_num])[:10].ljust(10, '0') + "  " + str(-15) + "\n")
+            kline.write(str(length[l_num])[:10].ljust(10, '0') + "  " + str(10) + "\n")
+            kline.write(str(length[l_num])[:10].ljust(10, '0') + "  " + str(-15) + "\n")
+    kline.close()
+
+
+
 # get Energy level form Eigenval file
 def get_eigenval():
     num_kpt, length, high_kpt_point, kpt = get_kpt()
@@ -215,6 +234,7 @@ def get_eigenval():
 
 # output band.dat
 def output_band():
+    output_klines()
     ispin = get_ispin()
     if ispin == 1:
         num_kpt, length, high_kpt_point, kpoints = get_kpt()
@@ -1112,6 +1132,7 @@ def hse_get_eigenval():
 
 # output band data for hse06
 def hse_output_band():
+    output_klines("KPATH.in")
     num_kpt_all, num_kpt_hk = hse_get_kpt_bandnum()
     num_high_k_num, high_kpt_point = hse_get_num_high_symmetry_points("KPATH.in")
     kpt = hse_cal_klength(hse_get_kpt_coordinate())
