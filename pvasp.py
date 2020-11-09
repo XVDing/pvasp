@@ -183,8 +183,8 @@ def output_klines(filename = "KPOINTS"):
         len_high_k = length[j]
     with open("klines.dat", "w", encoding='utf-8') as kline:
         kline.write("high_kpoints" + "\n")
-        kline.write(str(0) + "  " + str(10) + "\n")
-        kline.write(str(0) + "  " + str(-15) + "\n")
+        kline.write(str("0.").ljust(10, '0') + "  " + str(10) + "\n")
+        kline.write(str("0.").ljust(10, '0') + "  " + str(-15) + "\n")
         for l_num in range(0, len(length) - 1):
             kline.write(str(length[l_num])[:10].ljust(10, '0') + "  " + str(-15) + "\n")
             kline.write(str(length[l_num])[:10].ljust(10, '0') + "  " + str(10) + "\n")
