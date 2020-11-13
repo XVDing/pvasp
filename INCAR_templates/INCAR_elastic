@@ -1,0 +1,29 @@
+SYSTEM = opt
+# Start parameter
+ ISTART = 1 #0-new , 1-continue
+ ICHARG = 2 
+ PREC = Accurate
+
+#Electronic relaxation
+ ENCUT = 400 #cut-off energy
+ EDIFF = 1E-8
+# ALGO = FAST
+# IALGO = 48
+  LREAL = .FALSE.
+  ISMEAR = 0
+  SIGMA = 0.05
+# Ionic relaxation
+  EDIFFG = -0.001
+# elsatic constant
+  ISIF = 3
+  NSW = 1
+  IBRION = 6
+  NFREE=4
+  POTIM = 0.1
+ 
+# IDIPOL = 3      #dipole correction
+# LDIPOL = .TRUE. #dipole correction
+
+#output
+  LWAVE = .FALSE.
+  LCHARG = .FALSE.
