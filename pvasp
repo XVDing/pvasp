@@ -1,0 +1,2 @@
+#! /bin/sh
+python3 /scratchfs/cac/zhangchao/dingxy/scripts/pvasp/main.py
