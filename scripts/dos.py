@@ -2,7 +2,7 @@
 """
 Created on 10:06 13-11-2020 
 
-@author: Xian-Yong Ding
+@author: XY Ding
 mail to: dxy_vasp@163.com
 python3: dos.py
 """
