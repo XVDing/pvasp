@@ -1,2 +1,6 @@
 #! /bin/sh
-python3 /scratchfs/cac/zhangchao/dingxy/scripts/pvasp/main.py
+# user seting the path of current file for pvasp
+file_path="/home/dxy/software/pvasp"
+file_main=$file_path"/main.py"
+python3 $file_main
+
