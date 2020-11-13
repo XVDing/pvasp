@@ -26,8 +26,7 @@ file_path = curPath + "/INCAR_templates"
 # main control
 print(" ********************************************************************")
 print(" *This is a code used to simplify the vasp calculation, written by **")
-print(" *************           Xian-Yong Ding                **************")
-print(" Thanks for your citing: New Journal of Physics, Volume 22, July 2020")
+print(" *****************           XY Ding                *****************")
 print(" ********************************************************************")
 print(" *************          (^o^)GOOD LUCK!(^o^)           **************")
 print("\n")
