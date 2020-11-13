@@ -2,7 +2,7 @@
 """
 Created on 10:40 12-11-2020 
 
-@author: Xian-Yong Ding
+@author: XY Ding
 mail to: dxy_vasp@163.com
 python3: optics.py
 """
