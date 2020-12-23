@@ -14,11 +14,11 @@ import os, sys
 curPath = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(curPath)
 
-import scripts.initial
-import scripts.band as bd
-import scripts.hse06 as hse
-import scripts.dos as dos
-import scripts.optics as op
+#import scripts.initial
+#import scripts.band as bd
+#import scripts.hse06 as hse
+#import scripts.dos as dos
+#import scripts.optics as op
 
 
 file_path = curPath + "/INCAR_templates"
@@ -71,17 +71,21 @@ elif seltct_vasp == 2:
     print("(5) Optics properties")
     process_num = int(input("Input a Number: "))
     if process_num == 1:
+        import scripts.band as bd
         print(" ************************** Enter band ploting ****************************")
         bd.manipulate_bandplot()
     elif process_num == 2:
+        import scripts.hse06 as hse
         print(" ************************** Enter HSE06 ploting ****************************")
         hse.manipulate_bandplot()
     elif process_num == 3:
         print(" ****************************** waitting ***********************************")
     elif process_num == 4:
+        import scripts.dos as dos
         print(" ************************** Enter DOS ploting ******************************")
         dos._manipulate_dos()
     elif process_num == 5:
+        import scripts.optics as op
         print(" ******************** Enter optics properties ploting **********************")
         os.system("cp " + curPath + "/scripts/optics.sh ./")
         os.system("bash optics.sh")

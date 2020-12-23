@@ -154,9 +154,9 @@ def output_band():
         with open("band.dat", "w", encoding='utf-8') as band:
             band.write("Band Data" + "\n")
             for k_num in range(0, num_kpt):
-                band.write(str(kpt[k_num])[:10].ljust(10, '0') + "  ")
+                band.write(str(kpt[k_num])[:10].ljust(10, ' ') + "  ")
                 for flag_nbd in range(0, nbd):
-                    band.write(str(energy[flag_nbd][k_num])[:10].ljust(10, '0') + "  ")
+                    band.write(str(energy[flag_nbd][k_num])[:10].ljust(10, ' ') + "  ")
                 band.write("\n")
         band.close()
     elif ispin == 2:
@@ -171,17 +171,17 @@ def output_band():
         with open("band_up.dat", "w", encoding='utf-8') as band_up:
             band_up.write("Band Data" + "\n")
             for k_num in range(0, num_kpt):
-                band_up.write(str(kpt[k_num])[:10].ljust(10, '0') + "    ")
+                band_up.write(str(kpt[k_num])[:10].ljust(10, ' ') + "    ")
                 for flag_nbd in range(0, nbd):
-                    band_up.write(str(energy_up[flag_nbd][k_num])[:10].ljust(10, '0') + "    ")
+                    band_up.write(str(energy_up[flag_nbd][k_num])[:10].ljust(10, ' ') + "    ")
                 band_up.write("\n")
         band_up.close()
         with open("band_dw.dat", "w", encoding='utf-8') as band_dw:
             band_dw.write("Band Data" + "\n")
             for k_num in range(0, num_kpt):
-                band_dw.write(str(kpt[k_num])[:10].ljust(10, '0') + "    ")
+                band_dw.write(str(kpt[k_num])[:10].ljust(10, ' ') + "    ")
                 for flag_nbd in range(0, nbd):
-                    band_dw.write(str(energy_dw[flag_nbd][k_num])[:10].ljust(10, '0') + "    ")
+                    band_dw.write(str(energy_dw[flag_nbd][k_num])[:10].ljust(10, ' ') + "    ")
                 band_dw.write("\n")
         band_dw.close()
     else:
